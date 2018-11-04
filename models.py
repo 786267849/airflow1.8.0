@@ -1581,17 +1581,24 @@ class TaskInstance(Base):
 
     def email_alert(self, exception, is_retry=False):
         task = self.task
-        title = "Airflow alert: {self}".format(**locals())
+        title = "airflow {self.hostname} alert:".format(**locals())
         exception = str(exception).replace('\n', '<br>')
         try_ = task.retries + 1
+        iso = self.execution_date.isoformat()
         body = (
-            "Try {self.try_number} out of {try_}<br>"
-            "Exception:<br>{exception}<br>"
-            "Log: <a href='{self.log_url}'>Link</a><br>"
-            "Host: {self.hostname}<br>"
-            "Log file: {self.log_filepath}<br>"
-            "Mark success: <a href='{self.mark_success_url}'>Link</a><br>"
+            "dag_id: {self.dag_id}<br><br>"
+            "task_id: {self.task_id}<br><br>"
+            "execution_date: {iso}<br><br>"
+            "error: {exception}"
         ).format(**locals())
+        # body = (
+        #     "Try {self.try_number} out of {try_}<br>"
+        #     "Exception:<br>{exception}<br>"
+        #     "Log: <a href='{self.log_url}'>Link</a><br>"
+        #     "Host: {self.hostname}<br>"
+        #     "Log file: {self.log_filepath}<br>"
+        #     "Mark success: <a href='{self.mark_success_url}'>Link</a><br>"
+        # ).format(**locals())
         send_email(task.email, title, body)
 
     def set_duration(self):
@@ -2648,7 +2655,6 @@ class JollyBaseOperator(object):
             self,
             task_id,
             owner=configuration.get('operators', 'DEFAULT_OWNER'),
-            email=None,
             email_on_retry=True,
             email_on_failure=True,
             retries=0,
@@ -2675,6 +2681,12 @@ class JollyBaseOperator(object):
             trigger_rule=TriggerRule.ALL_SUCCESS,
             resources=None,
             run_as_user=None,
+            alert_method=None,  # ["email","weixin","phone"]
+            email=None,
+            weixin=None,
+            phone=None,
+            alert_on_retry=True,
+            alert_on_failure=True,
             *args,
             **kwargs):
 
