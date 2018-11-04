@@ -22,7 +22,7 @@ from airflow.exceptions import AirflowException
 log = logging.getLogger(__name__)
 
 
-class SparkSubmitHook(BaseHook):
+class JollySparkSubmitHook(BaseHook):
     """
     This hook is a wrapper around the spark-submit binary to kick off a spark-submit job.
     It requires that the "spark-submit" binary is in the PATH.
@@ -136,7 +136,7 @@ class SparkSubmitHook(BaseHook):
         # The url ot the spark master
         connection_cmd += ["--master", self._master]
         if self._run_as_user:
-            connection_cmd = ['sudo', '-E', '-H', '-u', self.run_as_user] + connection_cmd
+            connection_cmd = ['sudo', '-E', '-H', '-u', self._run_as_user] + connection_cmd
         if self._conf:
             for key in self._conf:
                 connection_cmd += ["--conf", "{}={}".format(key, str(self._conf[key]))]

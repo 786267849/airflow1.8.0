@@ -13,15 +13,16 @@
 # limitations under the License.
 #
 import logging
+import requests
 
-from airflow.contrib.hooks.spark_submit_hook import SparkSubmitHook
+from airflow.jollychic.hooks.jolly_spark_submit_hook import JollySparkSubmitHook
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
 
 log = logging.getLogger(__name__)
 
 
-class SparkSubmitOperator(BaseOperator):
+class JollySparkSubmitOperator(BaseOperator):
     """
     This hook is a wrapper around the spark-submit binary to kick off a spark-submit job.
     It requires that the "spark-submit" binary is in the PATH.
@@ -72,9 +73,12 @@ class SparkSubmitOperator(BaseOperator):
                  java_class=None,
                  driver_memory=None,
                  verbose=False,
+                 url=None,
+                 pre_data=None,     #{"partitionValue": "partitionValue","ruleName": "ruleName"}
+                 post_data=None,    #{"partitionValue": "partitionValue","ruleName": "ruleName"}
                  *args,
                  **kwargs):
-        super(SparkSubmitOperator, self).__init__(*args, **kwargs)
+        super(JollySparkSubmitOperator, self).__init__(*args, **kwargs)
         self._application = application
         self._conf = conf
         self._files = files
@@ -91,12 +95,14 @@ class SparkSubmitOperator(BaseOperator):
         self._verbose = verbose
         self._hook = None
         self._conn_id = conn_id
-
+        self._url = url
+        self._pre_data = pre_data
+        self._post_data = post_data
     def execute(self, context):
         """
         Call the SparkSubmitHook to run the provided spark job
         """
-        self._hook = SparkSubmitHook(
+        self._hook = JollySparkSubmitHook(
             conf=self._conf,
             conn_id=self._conn_id,
             files=self._files,
@@ -114,6 +120,16 @@ class SparkSubmitOperator(BaseOperator):
             verbose=self._verbose
         )
         self._hook.submit(self._application)
+
+    def pre_execute(self, context):
+        # resp = requests.post(url, self._pre_data)
+        # if resp["success"] == False or resp["alarms"] == True:
+            pass
+
+    def post_execute(self, context):
+        # resp = requests.post(self._url, self._post_data)
+        # if resp["success"] == False or resp["alarms"] == True:
+            pass
 
     def on_kill(self):
         self._hook.on_kill()
