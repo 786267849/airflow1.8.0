@@ -71,6 +71,7 @@ from airflow.utils.dates import cron_presets, date_range as utils_date_range
 from airflow.utils.db import provide_session
 from airflow.utils.decorators import apply_defaults
 from airflow.utils.email import send_email
+from airflow.utils.alert import Email, Phone, Weixin
 from airflow.utils.helpers import (
     as_tuple, is_container, is_in, validate_key, pprinttable)
 from airflow.utils.logging import LoggingMixin
@@ -1431,19 +1432,38 @@ class TaskInstance(Base):
             if task.retries and self.try_number % (task.retries + 1) != 0:
                 self.state = State.UP_FOR_RETRY
                 logging.info('Marking task as UP_FOR_RETRY')
-                if task.email_on_retry and task.email:
-                    self.email_alert(error, is_retry=True)
+                # if task.email_on_retry and task.email:
+                #     self.email_alert(error, is_retry=True)
+                if task.alert_on_retry:
+                    alerts = []
+                    if task.email:
+                        alerts.append((Email(),task.email))
+                    if task.weixin:
+                        alerts.append((Weixin(),task.weixin))
+                    if task.phone:
+                        alerts.append((Phone(),task.phone))
+                    self.message_alert(error, alerts, is_retry=True)
             else:
                 self.state = State.FAILED
                 if task.retries:
                     logging.info('All retries failed; marking task as FAILED')
                 else:
                     logging.info('Marking task as FAILED.')
-                if task.email_on_failure and task.email:
-                    self.email_alert(error, is_retry=False)
+                # if task.email_on_failure and task.email:
+                #     self.email_alert(error, is_retry=False)
+                if task.alert_on_failure:
+                    alerts = []
+                    if task.email:
+                        alerts.append((Email(), task.email))
+                    if task.weixin:
+                        alerts.append((Weixin(), task.weixin))
+                    if task.phone:
+                        alerts.append((Phone(), task.phone))
+                    self.message_alert(error, alerts, is_retry=True)
+
         except Exception as e2:
-            logging.error(
-                'Failed to send email to: ' + str(task.email))
+            # logging.error(
+            #     'Failed to send email to: ' + str(task.email))
             logging.exception(e2)
 
         # Handling callbacks pessimistically
@@ -1578,6 +1598,22 @@ class TaskInstance(Base):
             if content:
                 rendered_content = rt(attr, content, jinja_context)
                 setattr(task, attr, rendered_content)
+
+    def message_alert(self, exception, alerts, is_retry=False):
+        task = self.task
+        title = "airflow {self.hostname} alert:".format(**locals())
+        exception = str(exception).replace('\n', '<br>')
+        try_ = task.retries + 1
+        iso = self.execution_date.isoformat()
+        body = (
+            "dag_id: {self.dag_id}<br><br>"
+            "task_id: {self.task_id}<br><br>"
+            "execution_date: {iso}<br><br>"
+            "error: {exception}"
+        ).format(**locals())
+        for alert in alerts:
+            alert[0].send(alert[1], title, body)
+
 
     def email_alert(self, exception, is_retry=False):
         task = self.task
@@ -2655,8 +2691,8 @@ class JollyBaseOperator(object):
             self,
             task_id,
             owner=configuration.get('operators', 'DEFAULT_OWNER'),
-            email_on_retry=True,
-            email_on_failure=True,
+            # email_on_retry=True,
+            # email_on_failure=True,
             retries=0,
             retry_delay=timedelta(seconds=300),
             retry_exponential_backoff=False,
@@ -2681,10 +2717,9 @@ class JollyBaseOperator(object):
             trigger_rule=TriggerRule.ALL_SUCCESS,
             resources=None,
             run_as_user=None,
-            alert_method=None,  # ["email","weixin","phone"]
             email=None,
             weixin=None,
-            phone=None,
+            phone=False,
             alert_on_retry=True,
             alert_on_failure=True,
             *args,
@@ -2705,8 +2740,12 @@ class JollyBaseOperator(object):
         self.task_id = task_id
         self.owner = owner
         self.email = email
-        self.email_on_retry = email_on_retry
-        self.email_on_failure = email_on_failure
+        self.weixin = weixin
+        self.phone = phone
+        self.alert_on_retry = alert_on_retry
+        self.alert_on_failure = alert_on_failure
+        # self.email_on_retry = email_on_retry
+        # self.email_on_failure = email_on_failure
         self.start_date = start_date
         if start_date and not isinstance(start_date, datetime):
             logging.warning(

@@ -16,13 +16,14 @@ import logging
 import requests
 
 from airflow.jollychic.hooks.jolly_spark_submit_hook import JollySparkSubmitHook
-from airflow.models import BaseOperator
+from airflow.models import JollyBaseOperator
 from airflow.utils.decorators import apply_defaults
-
+import json
+from airflow import configuration
 log = logging.getLogger(__name__)
 
 
-class JollySparkSubmitOperator(BaseOperator):
+class JollySparkSubmitOperator(JollyBaseOperator):
     """
     This hook is a wrapper around the spark-submit binary to kick off a spark-submit job.
     It requires that the "spark-submit" binary is in the PATH.
@@ -73,9 +74,9 @@ class JollySparkSubmitOperator(BaseOperator):
                  java_class=None,
                  driver_memory=None,
                  verbose=False,
-                 url=None,
-                 pre_data=None,     #{"partitionValue": "partitionValue","ruleName": "ruleName"}
-                 post_data=None,    #{"partitionValue": "partitionValue","ruleName": "ruleName"}
+                 pre_data=None,  # ["ruleName","partitionValue"]
+                 post_data=None,  # ["ruleName","partitionValue"]
+                 is_hour=None,
                  *args,
                  **kwargs):
         super(JollySparkSubmitOperator, self).__init__(*args, **kwargs)
@@ -95,9 +96,9 @@ class JollySparkSubmitOperator(BaseOperator):
         self._verbose = verbose
         self._hook = None
         self._conn_id = conn_id
-        self._url = url
         self._pre_data = pre_data
         self._post_data = post_data
+        self._is_hour = is_hour
     def execute(self, context):
         """
         Call the SparkSubmitHook to run the provided spark job
@@ -120,16 +121,61 @@ class JollySparkSubmitOperator(BaseOperator):
             verbose=self._verbose
         )
         self._hook.submit(self._application)
-
-    def pre_execute(self, context):
-        # resp = requests.post(url, self._pre_data)
-        # if resp["success"] == False or resp["alarms"] == True:
-            pass
+    # def pre_execute(self, context):
+    #     if self._pre_data:
+    #         execution_date = context['execution_date']
+    #         try:
+    #             if len(self._pre_data) == 2:
+    #                 partitionValue = self._pre_data[1]
+    #             elif self._is_hour:
+    #                 partitionValue = execution_date.strftime('%Y-%m-%d %H')
+    #             else:
+    #                 partitionValue = execution_date.strftime('%Y%m%d')
+    #             url = configuration.get('holmes', 'url')
+    #             data = {
+    #                 "partitionValue": partitionValue,
+    #                 "ruleName": self._pre_data[0]
+    #             }
+    #             headers = {
+    #                 'Content-Type': 'application/json;charset=UTF-8'
+    #             }
+    #             resp = requests.post(url, data=json.dumps(data), headers=headers, timeout=(10, 600))
+    #             result = json.loads(resp.text)
+    #             if not result["success"] or result["alarms"][0]["alarm"]:
+    #                 raise NameError
+    #             else:
+    #                 logging.info("Upstream dependency verification sucess")
+    #         except Exception as e:
+    #             logging.error("upstream dependency verification failed \n" + str(e))
+    #             raise
 
     def post_execute(self, context):
-        # resp = requests.post(self._url, self._post_data)
-        # if resp["success"] == False or resp["alarms"] == True:
-            pass
+        if self._post_data:
+            execution_date = context['execution_date']
+            try:
+                if len(self._post_data) == 2:
+                    partitionValue = self._post_data[1]
+                elif self._is_hour:
+                    partitionValue = execution_date.strftime('%Y-%m-%d %H')
+                else:
+                    partitionValue = execution_date.strftime('%Y%m%d')
+                url = configuration.get('holmes', 'url')
+                # url = 'http://169.55.42.102:32002/holmes/execution/submitRule'
+                data = {
+                    "partitionValue": partitionValue,
+                    "ruleName": self._post_data[0]
+                }
+                headers = {
+                    'Content-Type': 'application/json;charset=UTF-8'
+                }
+                resp = requests.post(url, data=json.dumps(data), headers=headers, timeout=(10, 600))
+                result = json.loads(resp.text)
+                if not result["success"] or result["alarms"][0]["alarm"]:
+                    raise NameError
+                logging.info("{0}\tdata verification success".format(partitionValue))
+            except Exception as e:
+                logging.error("data verification failed \n" + str(e))
+                raise
 
     def on_kill(self):
         self._hook.on_kill()

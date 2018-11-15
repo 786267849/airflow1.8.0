@@ -135,8 +135,8 @@ class JollySparkSubmitHook(BaseHook):
 
         # The url ot the spark master
         connection_cmd += ["--master", self._master]
-        if self._run_as_user:
-            connection_cmd = ['sudo', '-E', '-H', '-u', self._run_as_user] + connection_cmd
+        # if self._run_as_user:
+        #     connection_cmd = ['sudo', '-E', '-H', '-u', self._run_as_user] + connection_cmd
         if self._conf:
             for key in self._conf:
                 connection_cmd += ["--conf", "{}={}".format(key, str(self._conf[key]))]
