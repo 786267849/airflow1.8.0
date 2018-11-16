@@ -56,6 +56,5 @@ class JollyMySqlOperator(JollyBaseOperator):
         hook = JollyMySqlHook(mysql_conn_id=self.mysql_conn_id)
         hook.run(
             self.sql,
-            sql_file = self.sql_file,
             autocommit=self.autocommit,
             parameters=self.parameters)

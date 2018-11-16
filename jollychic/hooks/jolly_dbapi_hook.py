@@ -138,7 +138,7 @@ class JollyDbApiHook(BaseHook):
         conn.close()
         return rows
 
-    def run(self, sql, sql_file=None, autocommit=False, parameters=None):
+    def run(self, sql, autocommit=False, parameters=None):
         """
         Runs a command or a list of commands. Pass a list of sql
         statements to the sql parameter to get them to execute
