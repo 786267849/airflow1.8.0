@@ -15,7 +15,7 @@
 import logging
 
 from airflow.jollychic.hooks.jolly_hive_hooks import JollyHiveServer2Hook
-from airflow.hooks.mysql_hook import MySqlHook
+from airflow.jollychic.hooks.jolly_mysql_hook import JollyMySqlHook
 from airflow.models import JollyBaseOperator
 from airflow.utils.decorators import apply_defaults
 
@@ -63,6 +63,7 @@ class JollyHiveToMySqlTransfer(JollyBaseOperator):
             self,
             sql,
             mysql_table,
+            hive_database='default',
             hiveserver2_conn_id='hiveserver2_default',
             mysql_conn_id='mysql_default',
             mysql_preoperator=None,
@@ -72,6 +73,7 @@ class JollyHiveToMySqlTransfer(JollyBaseOperator):
         super(JollyHiveToMySqlTransfer, self).__init__(*args, **kwargs)
         self.sql = sql
         self.mysql_table = mysql_table
+        self.hive_database = hive_database
         self.mysql_conn_id = mysql_conn_id
         self.mysql_preoperator = mysql_preoperator
         self.mysql_postoperator = mysql_postoperator
@@ -88,9 +90,9 @@ class JollyHiveToMySqlTransfer(JollyBaseOperator):
             hive.to_csv(self.sql, tmpfile.name, delimiter='\t',
                 lineterminator='\n', output_header=False)
         else:
-            results = hive.get_records(self.sql)
+            results = hive.get_records(self.sql, schema=self.hive_database)
 
-        mysql = MySqlHook(mysql_conn_id=self.mysql_conn_id)
+        mysql = JollyMySqlHook(mysql_conn_id=self.mysql_conn_id)
         if self.mysql_preoperator:
             logging.info("Running MySQL preoperator")
             mysql.run(self.mysql_preoperator)
