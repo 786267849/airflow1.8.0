@@ -82,7 +82,7 @@ class JollyPythonOperator(JollyBaseOperator):
         return return_value
 
 
-class BranchPythonOperator(JollyPythonOperator):
+class JollyBranchPythonOperator(JollyPythonOperator):
     """
     Allows a workflow to "branch" or follow a single path following the
     execution of this task.
@@ -102,7 +102,7 @@ class BranchPythonOperator(JollyPythonOperator):
     ``skipped``.
     """
     def execute(self, context):
-        branch = super(BranchPythonOperator, self).execute(context)
+        branch = super(JollyBranchPythonOperator, self).execute(context)
         logging.info("Following branch " + branch)
         logging.info("Marking other directly downstream tasks as skipped")
         session = settings.Session()
@@ -119,7 +119,7 @@ class BranchPythonOperator(JollyPythonOperator):
         logging.info("Done.")
 
 
-class ShortCircuitOperator(JollyPythonOperator):
+class JollyShortCircuitOperator(JollyPythonOperator):
     """
     Allows a workflow to continue only if a condition is met. Otherwise, the
     workflow "short-circuits" and downstream tasks are skipped.
@@ -132,7 +132,7 @@ class ShortCircuitOperator(JollyPythonOperator):
     The condition is determined by the result of `python_callable`.
     """
     def execute(self, context):
-        condition = super(ShortCircuitOperator, self).execute(context)
+        condition = super(JollyShortCircuitOperator, self).execute(context)
         logging.info("Condition result is {}".format(condition))
         if condition:
             logging.info('Proceeding with downstream tasks...')
