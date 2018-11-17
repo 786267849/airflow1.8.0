@@ -16,7 +16,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import requests
 from future.standard_library import install_aliases
 
 install_aliases()
@@ -45,7 +44,7 @@ import textwrap
 import traceback
 import warnings
 import hashlib
-
+import requests
 from urllib.parse import urlparse
 
 from sqlalchemy import (
@@ -1357,8 +1356,8 @@ class TaskInstance(Base):
 
                 # Don't clear Xcom until the task is certain to execute
                 self.clear_xcom_data()
-
-                self.render_templates()
+                
+		self.render_templates()
                 task_copy.pre_execute(context=context)
 
                 # If a timeout is specified for the task, make it fail
@@ -1592,7 +1591,6 @@ class TaskInstance(Base):
             if self.task.dag.user_defined_macros:
                 jinja_context.update(
                     self.task.dag.user_defined_macros)
-
         rt = self.task.render_template  # shortcut to method
         for attr in task.__class__.template_fields:
             content = getattr(task, attr)
@@ -2692,8 +2690,6 @@ class JollyBaseOperator(object):
             self,
             task_id,
             owner=configuration.get('operators', 'DEFAULT_OWNER'),
-            # email_on_retry=True,
-            # email_on_failure=True,
             retries=0,
             retry_delay=timedelta(seconds=300),
             retry_exponential_backoff=False,
@@ -2723,7 +2719,7 @@ class JollyBaseOperator(object):
             phone=False,
             alert_on_retry=True,
             alert_on_failure=True,
-            pre_rule=None,
+	        pre_rule=None,
             post_rule=None,
             per_interval='day',
             *args,
@@ -2748,8 +2744,6 @@ class JollyBaseOperator(object):
         self.phone = phone
         self.alert_on_retry = alert_on_retry
         self.alert_on_failure = alert_on_failure
-        # self.email_on_retry = email_on_retry
-        # self.email_on_failure = email_on_failure
         self.start_date = start_date
         if start_date and not isinstance(start_date, datetime):
             logging.warning(
@@ -2797,6 +2791,7 @@ class JollyBaseOperator(object):
         self._pre_rule = pre_rule
         self._post_rule = post_rule
         self._per_interval = per_interval
+
         # Private attributes
         self._upstream_task_ids = []
         self._downstream_task_ids = []
@@ -2980,33 +2975,6 @@ class JollyBaseOperator(object):
         for people deriving operators.
         """
         pass
-    # def pre_execute(self, context):
-    #     if self._pre_data:
-    #         execution_date = context['execution_date']
-    #         try:
-    #             if len(self._pre_data) == 2:
-    #                 partitionValue = self._pre_data[1]
-    #             elif self._is_hour:
-    #                 partitionValue = execution_date.strftime('%Y-%m-%d %H')
-    #             else:
-    #                 partitionValue = execution_date.strftime('%Y%m%d')
-    #             url = configuration.get('holmes', 'url')
-    #             data = {
-    #                 "partitionValue": partitionValue,
-    #                 "ruleName": self._pre_data[0]
-    #             }
-    #             headers = {
-    #                 'Content-Type': 'application/json;charset=UTF-8'
-    #             }
-    #             resp = requests.post(url, data=json.dumps(data), headers=headers, timeout=(10, 600))
-    #             result = json.loads(resp.text)
-    #             if not result["success"] or result["alarms"][0]["alarm"]:
-    #                 raise NameError
-    #             else:
-    #                 logging.info("Upstream dependency verification sucess")
-    #         except Exception as e:
-    #             logging.error("upstream dependency verification failed \n" + str(e))
-    #             raise
 
     def execute(self, context):
         """
@@ -3016,6 +2984,13 @@ class JollyBaseOperator(object):
         Refer to get_template_context for more context.
         """
         raise NotImplementedError()
+
+    # def post_execute(self, context):
+    #     """
+    #     This is triggered right after self.execute, it's mostly a hook
+    #     for people deriving operators.
+    #     """
+    #     pass
 
     def post_execute(self, context):
         if self._post_rule:
@@ -3041,13 +3016,6 @@ class JollyBaseOperator(object):
             except Exception as e:
                 logging.error("data verification failed \n" + str(e))
                 raise
-
-    # def post_execute(self, context):
-    #     """
-    #     This is triggered right after self.execute, it's mostly a hook
-    #     for people deriving operators.
-    #     """
-    #     pass
 
     def on_kill(self):
         """
