@@ -123,27 +123,22 @@ class JollySparkSqlHook(BaseHook):
         :param cmd: command to remotely execute
         :param kwargs: extra arguments to Popen (see subprocess.Popen)
         """
-        prefixed_cmd = self._prepare_command(cmd)
-        print('xxxxxxxxxxxxxxxxxxxxxxxx',prefixed_cmd)
-        self._sp = subprocess.Popen(prefixed_cmd,
+        spark_sql_cmd = self._prepare_command(cmd)
+        self._sp = subprocess.Popen(spark_sql_cmd,
                                     stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT,
                                     **kwargs)
-        # using two iterators here to support 'real-time' logging
-        for line in iter(self._sp.stdout.readline, b''):
-            line = line.decode('utf-8').strip()
-            logging.info(line)
-        for line in iter(self._sp.stderr.readline, b''):
-            line = line.decode('utf-8').strip()
-            logging.info(line)
-        output, stderr = self._sp.communicate()
 
-        if self._sp.returncode:
-            raise AirflowException("Cannot execute {} on {}. Error code is: "
-                                   "{}. Output: {}, Stderr: {}"
-                                   .format(cmd, self._conn.host,
-                                           self._sp.returncode, output, stderr))
+        for line in iter(self._sp.stdout.readline, ''):
+            logging.info(line.decode('utf-8').strip())
+        returncode = self._sp.wait()
 
+        if returncode:
+            raise AirflowException(
+                "Cannot execute {} on {}. Process exit code: {}.".format(
+                    cmd, self._conn.host, returncode
+                )
+            )
     def kill(self):
         if self._sp and self._sp.poll() is None:
             logging.info("Killing the Spark-Sql job")
