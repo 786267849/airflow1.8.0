@@ -3266,7 +3266,7 @@ class JollyBaseOperator(object):
             task_list = [task_or_task_list]
 
         for t in task_list:
-            if not isinstance(t, BaseOperator):
+            if not isinstance(t, JollyBaseOperator):
                 raise AirflowException(
                     "Relationships can only be set between "
                     "Operators; received {}".format(t.__class__.__name__))

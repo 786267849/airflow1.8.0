@@ -44,8 +44,8 @@ class JollyMySqlOperator(JollyBaseOperator):
         super(JollyMySqlOperator, self).__init__(*args, **kwargs)
         self.mysql_conn_id = mysql_conn_id
         self.sql = sql
-        if sql_file:
-            self.sql_file = sql_file
+        self.sql_file = sql_file
+        if self.sql_file:
             with open(self.sql_file,'r') as f:
                 self.sql = f.readlines()
         self.autocommit = autocommit
