@@ -1357,7 +1357,7 @@ class TaskInstance(Base):
                 # Don't clear Xcom until the task is certain to execute
                 self.clear_xcom_data()
                 
-		self.render_templates()
+                self.render_templates()
                 task_copy.pre_execute(context=context)
 
                 # If a timeout is specified for the task, make it fail

@@ -52,6 +52,7 @@ class JollySparkSqlHook(BaseHook):
                  sql,
                  conf=None,
                  conn_id='spark_sql_default',
+                 total_executor_cores=None,
                  executor_cores=None,
                  executor_memory=None,
                  keytab=None,
@@ -64,6 +65,7 @@ class JollySparkSqlHook(BaseHook):
         self._sql = sql
         self._conf = conf
         self._conn = self.get_connection(conn_id)
+        self._total_executor_cores = total_executor_cores
         self._executor_cores = executor_cores
         self._executor_memory = executor_memory
         self._keytab = keytab
@@ -89,6 +91,8 @@ class JollySparkSqlHook(BaseHook):
         if self._conf:
             for conf_el in self._conf.split(","):
                 connection_cmd += ["--conf", conf_el]
+        if self._total_executor_cores:
+            connection_cmd += ["--total-executor-cores", str(self._total_executor_cores)]
         if self._executor_cores:
             connection_cmd += ["--executor-cores", str(self._executor_cores)]
         if self._executor_memory:
@@ -98,10 +102,11 @@ class JollySparkSqlHook(BaseHook):
         if self._num_executors:
             connection_cmd += ["--num-executors", str(self._num_executors)]
         if self._sql:
-            if self._sql.endswith('.sql') or self._sql.endswith(".hql"):
-                connection_cmd += ["-f", self._sql]
+            sql = self._sql.strip()
+            if sql.endswith('.sql') or sql.endswith(".hql"):
+                connection_cmd += ["-f", sql]
             else:
-                connection_cmd += ["-e", self._sql]
+                connection_cmd += ["-e", sql]
         if self._master:
             connection_cmd += ["--master", self._master]
         if self._name:

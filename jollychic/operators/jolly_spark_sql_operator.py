@@ -52,6 +52,7 @@ class JollySparkSqlOperator(JollyBaseOperator):
                  sql,
                  conf=None,
                  conn_id='spark_sql_default',
+                 total_executor_cores=None,
                  executor_cores=None,
                  executor_memory=None,
                  keytab=None,
@@ -65,6 +66,7 @@ class JollySparkSqlOperator(JollyBaseOperator):
         self._sql = sql
         self._conf = conf
         self._conn_id = conn_id
+        self._total_executor_cores = total_executor_cores
         self._executor_cores = executor_cores
         self._executor_memory = executor_memory
         self._keytab = keytab
@@ -81,6 +83,7 @@ class JollySparkSqlOperator(JollyBaseOperator):
         self._hook = JollySparkSqlHook(sql=self._sql,
                                   conf=self._conf,
                                   conn_id=self._conn_id,
+                                  total_executor_cores=self._total_executor_cores,
                                   executor_cores=self._executor_cores,
                                   executor_memory=self._executor_memory,
                                   keytab=self._keytab,
