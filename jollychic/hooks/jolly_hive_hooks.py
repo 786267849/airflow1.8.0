@@ -205,6 +205,7 @@ class JollyHiveCliHook(BaseHook):
 
                 if verbose:
                     logging.info(" ".join(hive_cmd))
+                logging.info('Execute commd:{}'.format(' '.join(hive_cmd)))
                 sp = subprocess.Popen(
                     hive_cmd,
                     stdout=subprocess.PIPE,

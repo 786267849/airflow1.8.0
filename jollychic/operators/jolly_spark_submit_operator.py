@@ -56,10 +56,12 @@ class JollySparkSubmitOperator(JollyBaseOperator):
     :param verbose: Whether to pass the verbose flag to spark-submit process for debugging
     :type verbose: bool
     """
+    template_fields = ('params_list',)
 
     @apply_defaults
     def __init__(self,
                  application='',
+                 params_list=None,
                  conf=None,
                  conn_id='spark_default',
                  files=None,
@@ -78,6 +80,7 @@ class JollySparkSubmitOperator(JollyBaseOperator):
                  **kwargs):
         super(JollySparkSubmitOperator, self).__init__(*args, **kwargs)
         self._application = application
+        self.params_list = params_list
         self._conf = conf
         self._files = files
         self._py_files = py_files
@@ -110,11 +113,11 @@ class JollySparkSubmitOperator(JollyBaseOperator):
             name=self._name,
             java_class=self._java_class,
             driver_memory=self._driver_memory,
-            run_as_user=self.run_as_user,
             num_executors=self._num_executors,
-            verbose=self._verbose
+            verbose=self._verbose,
+            run_user = self.run_user
         )
-        self._hook.submit(self._application)
+        self._hook.submit(self._application, self.params_list)
 
     def on_kill(self):
         self._hook.on_kill()

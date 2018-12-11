@@ -202,8 +202,8 @@ class DagBag(BaseDagBag, LoggingMixin):
         if orm_dag and (
                 root_dag_id not in self.dags or
                 (
-                    orm_dag.last_expired and
-                    dag.last_loaded < orm_dag.last_expired
+                        orm_dag.last_expired and
+                        dag.last_loaded < orm_dag.last_expired
                 )
         ):
             # Reprocess source file
@@ -330,14 +330,14 @@ class DagBag(BaseDagBag, LoggingMixin):
 
         tis = (
             session.query(TI)
-            .join(LJ, TI.job_id == LJ.id)
-            .filter(TI.state == State.RUNNING)
-            .filter(
+                .join(LJ, TI.job_id == LJ.id)
+                .filter(TI.state == State.RUNNING)
+                .filter(
                 or_(
                     LJ.state != State.RUNNING,
                     LJ.latest_heartbeat < limit_dttm,
                 ))
-            .all()
+                .all()
         )
 
         for ti in tis:
@@ -417,7 +417,7 @@ class DagBag(BaseDagBag, LoggingMixin):
 
                             td = datetime.now() - ts
                             td = td.total_seconds() + (
-                                float(td.microseconds) / 1000000)
+                                    float(td.microseconds) / 1000000)
                             stats.append(FileLoadStat(
                                 filepath.replace(dag_folder, ''),
                                 td,
@@ -1187,9 +1187,9 @@ class TaskInstance(Base):
 
         pool = (
             session
-            .query(Pool)
-            .filter(Pool.pool == self.task.pool)
-            .first()
+                .query(Pool)
+                .filter(Pool.pool == self.task.pool)
+                .first()
         )
         if not pool:
             return False
@@ -1352,11 +1352,12 @@ class TaskInstance(Base):
                     logging.error("Killing subprocess")
                     task_copy.on_kill()
                     raise AirflowException("Task received SIGTERM signal")
+
                 signal.signal(signal.SIGTERM, signal_handler)
 
                 # Don't clear Xcom until the task is certain to execute
                 self.clear_xcom_data()
-                
+
                 self.render_templates()
                 task_copy.pre_execute(context=context)
 
@@ -1432,16 +1433,16 @@ class TaskInstance(Base):
             if task.retries and self.try_number % (task.retries + 1) != 0:
                 self.state = State.UP_FOR_RETRY
                 logging.info('Marking task as UP_FOR_RETRY')
-                # if task.email_on_retry and task.email:
-                #     self.email_alert(error, is_retry=True)
+                if task.email_on_retry and task.email:
+                    self.email_alert(error, is_retry=True)
                 if task.alert_on_retry:
                     alerts = []
                     if task.email:
-                        alerts.append((Email(),task.email))
+                        alerts.append((Email(), task.email))
                     if task.weixin:
-                        alerts.append((Weixin(),task.weixin))
+                        alerts.append((Weixin(), task.weixin))
                     if task.phone:
-                        alerts.append((Phone(),task.phone))
+                        alerts.append((Phone(), task.phone))
                     self.message_alert(error, alerts, is_retry=True)
             else:
                 self.state = State.FAILED
@@ -1449,8 +1450,8 @@ class TaskInstance(Base):
                     logging.info('All retries failed; marking task as FAILED')
                 else:
                     logging.info('Marking task as FAILED.')
-                # if task.email_on_failure and task.email:
-                #     self.email_alert(error, is_retry=False)
+                if task.email_on_failure and task.email:
+                    self.email_alert(error, is_retry=False)
                 if task.alert_on_failure:
                     alerts = []
                     if task.email:
@@ -1513,10 +1514,10 @@ class TaskInstance(Base):
                 params.update(task.dag.params)
             dag_run = (
                 session.query(DagRun)
-                .filter_by(
+                    .filter_by(
                     dag_id=task.dag.dag_id,
                     execution_date=self.execution_date)
-                .first()
+                    .first()
             )
             run_id = dag_run.run_id if dag_run else None
             session.expunge_all()
@@ -1530,6 +1531,7 @@ class TaskInstance(Base):
             Wrapper around Variable. This way you can get variables in templates by using
             {var.variable_name}.
             """
+
             def __init__(self):
                 self.var = None
 
@@ -1612,7 +1614,6 @@ class TaskInstance(Base):
         ).format(**locals())
         for alert in alerts:
             alert[0].send(alert[1], title, body)
-
 
     def email_alert(self, exception, is_retry=False):
         task = self.task
@@ -1984,8 +1985,8 @@ class BaseOperator(object):
             raise AirflowException(
                 "The trigger_rule must be one of {all_triggers},"
                 "'{d}.{t}'; received '{tr}'."
-                .format(all_triggers=TriggerRule.all_triggers,
-                        d=dag.dag_id, t=task_id, tr=trigger_rule))
+                    .format(all_triggers=TriggerRule.all_triggers,
+                            d=dag.dag_id, t=task_id, tr=trigger_rule))
 
         self.trigger_rule = trigger_rule
         self.depends_on_past = depends_on_past
@@ -2053,9 +2054,9 @@ class BaseOperator(object):
 
     def __eq__(self, other):
         return (
-            type(self) == type(other) and
-            all(self.__dict__.get(c, None) == other.__dict__.get(c, None)
-                for c in self._comps))
+                type(self) == type(other) and
+                all(self.__dict__.get(c, None) == other.__dict__.get(c, None)
+                    for c in self._comps))
 
     def __ne__(self, other):
         return not self == other
@@ -2425,7 +2426,7 @@ class BaseOperator(object):
             TaskInstance(self, dt).run(
                 mark_success=mark_success,
                 ignore_depends_on_past=(
-                    dt == start_date and ignore_first_depends_on_past),
+                        dt == start_date and ignore_first_depends_on_past),
                 ignore_ti_state=ignore_ti_state)
 
     def dry_run(self):
@@ -2469,7 +2470,7 @@ class BaseOperator(object):
             task_list = [task_or_task_list]
 
         for t in task_list:
-            if not isinstance(t,(BaseOperator,JollyBaseOperator)):
+            if not isinstance(t, (BaseOperator, JollyBaseOperator)):
                 raise AirflowException(
                     "Relationships can only be set between "
                     "Operators; received {}".format(t.__class__.__name__))
@@ -2548,7 +2549,6 @@ class BaseOperator(object):
             task_ids=task_ids,
             dag_id=dag_id,
             include_prior_dates=include_prior_dates)
-
 
 
 @functools.total_ordering
@@ -2714,12 +2714,13 @@ class JollyBaseOperator(object):
             trigger_rule=TriggerRule.ALL_SUCCESS,
             resources=None,
             run_as_user=None,
+            run_user=None,
             email=None,
             weixin=None,
             phone=False,
             alert_on_retry=True,
             alert_on_failure=True,
-	        pre_rule=None,
+            pre_rule=None,
             post_rule=None,
             per_interval='day',
             *args,
@@ -2753,8 +2754,8 @@ class JollyBaseOperator(object):
             raise AirflowException(
                 "The trigger_rule must be one of {all_triggers},"
                 "'{d}.{t}'; received '{tr}'."
-                .format(all_triggers=TriggerRule.all_triggers,
-                        d=dag.dag_id, t=task_id, tr=trigger_rule))
+                    .format(all_triggers=TriggerRule.all_triggers,
+                            d=dag.dag_id, t=task_id, tr=trigger_rule))
 
         self.trigger_rule = trigger_rule
         self.depends_on_past = depends_on_past
@@ -2788,6 +2789,7 @@ class JollyBaseOperator(object):
         self.priority_weight = priority_weight
         self.resources = Resources(**(resources or {}))
         self.run_as_user = run_as_user
+        self.run_user = run_user
         self._pre_rule = pre_rule
         self._post_rule = post_rule
         self._per_interval = per_interval
@@ -2825,9 +2827,9 @@ class JollyBaseOperator(object):
 
     def __eq__(self, other):
         return (
-            type(self) == type(other) and
-            all(self.__dict__.get(c, None) == other.__dict__.get(c, None)
-                for c in self._comps))
+                type(self) == type(other) and
+                all(self.__dict__.get(c, None) == other.__dict__.get(c, None)
+                    for c in self._comps))
 
     def __ne__(self, other):
         return not self == other
@@ -3222,7 +3224,7 @@ class JollyBaseOperator(object):
             TaskInstance(self, dt).run(
                 mark_success=mark_success,
                 ignore_depends_on_past=(
-                    dt == start_date and ignore_first_depends_on_past),
+                        dt == start_date and ignore_first_depends_on_past),
                 ignore_ti_state=ignore_ti_state)
 
     def dry_run(self):
@@ -3266,7 +3268,7 @@ class JollyBaseOperator(object):
             task_list = [task_or_task_list]
 
         for t in task_list:
-            if not isinstance(t, (BaseOperator,JollyBaseOperator)):
+            if not isinstance(t, (BaseOperator, JollyBaseOperator)):
                 raise AirflowException(
                     "Relationships can only be set between "
                     "Operators; received {}".format(t.__class__.__name__))
@@ -3348,7 +3350,6 @@ class JollyBaseOperator(object):
 
 
 class DagModel(Base):
-
     __tablename__ = "dag"
     """
     These items are stored in the database for state related information
@@ -3540,11 +3541,11 @@ class DAG(BaseDag, LoggingMixin):
 
     def __eq__(self, other):
         return (
-            type(self) == type(other) and
-            # Use getattr() instead of __dict__ as __dict__ doesn't return
-            # correct values for properties.
-            all(getattr(self, c, None) == getattr(other, c, None)
-                for c in self._comps))
+                type(self) == type(other) and
+                # Use getattr() instead of __dict__ as __dict__ doesn't return
+                # correct values for properties.
+                all(getattr(self, c, None) == getattr(other, c, None)
+                    for c in self._comps))
 
     def __ne__(self, other):
         return not self == other
@@ -3765,10 +3766,10 @@ class DAG(BaseDag, LoggingMixin):
         """
         dagrun = (
             session.query(DagRun)
-            .filter(
+                .filter(
                 DagRun.dag_id == self.dag_id,
                 DagRun.execution_date == execution_date)
-            .first())
+                .first())
 
         return dagrun
 
@@ -4079,6 +4080,7 @@ class DAG(BaseDag, LoggingMixin):
         """
         Shows an ascii tree representation of the DAG
         """
+
         def get_downstream(task, level=0):
             print((" " * level * 4) + str(task))
             level += 1
@@ -4347,8 +4349,8 @@ class KnownEvent(Base):
     label = Column(String(200))
     start_date = Column(DateTime)
     end_date = Column(DateTime)
-    user_id = Column(Integer(), ForeignKey('users.id'),)
-    known_event_type_id = Column(Integer(), ForeignKey('known_event_type.id'),)
+    user_id = Column(Integer(), ForeignKey('users.id'), )
+    known_event_type_id = Column(Integer(), ForeignKey('known_event_type.id'), )
     reported_by = relationship(
         "User", cascade=False, cascade_backrefs=False, backref='known_events')
     event_type = relationship(
@@ -4543,9 +4545,9 @@ class XCom(Base):
 
         query = (
             session.query(cls.value)
-            .filter(and_(*filters))
-            .order_by(cls.execution_date.desc(), cls.timestamp.desc())
-            .limit(1))
+                .filter(and_(*filters))
+                .order_by(cls.execution_date.desc(), cls.timestamp.desc())
+                .limit(1))
 
         result = query.first()
         if result:
@@ -4579,9 +4581,9 @@ class XCom(Base):
 
         query = (
             session.query(cls)
-            .filter(and_(*filters))
-            .order_by(cls.execution_date.desc(), cls.timestamp.desc())
-            .limit(limit))
+                .filter(and_(*filters))
+                .order_by(cls.execution_date.desc(), cls.timestamp.desc())
+                .limit(limit))
 
         return query.all()
 
@@ -4635,7 +4637,7 @@ class DagStat(Base):
 
         qry = (
             session.query(DagStat)
-            .filter(and_(DagStat.dag_id.in_(dag_ids), DagStat.dirty == True))
+                .filter(and_(DagStat.dag_id.in_(dag_ids), DagStat.dirty == True))
         )
 
         dirty_ids = {dag.dag_id for dag in qry.all()}
@@ -4644,8 +4646,8 @@ class DagStat(Base):
 
         qry = (
             session.query(DagRun.dag_id, DagRun.state, func.count('*'))
-            .filter(DagRun.dag_id.in_(dirty_ids))
-            .group_by(DagRun.dag_id, DagRun.state)
+                .filter(DagRun.dag_id.in_(dirty_ids))
+                .group_by(DagRun.dag_id, DagRun.state)
         )
 
         for dag_id, state, count in qry:
@@ -5019,10 +5021,10 @@ class Pool(Base):
         """
         running = (
             session
-            .query(TaskInstance)
-            .filter(TaskInstance.pool == self.pool)
-            .filter(TaskInstance.state == State.RUNNING)
-            .count()
+                .query(TaskInstance)
+                .filter(TaskInstance.pool == self.pool)
+                .filter(TaskInstance.state == State.RUNNING)
+                .count()
         )
         return running
 
@@ -5033,10 +5035,10 @@ class Pool(Base):
         """
         return (
             session
-            .query(TaskInstance)
-            .filter(TaskInstance.pool == self.pool)
-            .filter(TaskInstance.state == State.QUEUED)
-            .count()
+                .query(TaskInstance)
+                .filter(TaskInstance.pool == self.pool)
+                .filter(TaskInstance.state == State.QUEUED)
+                .count()
         )
 
     @provide_session

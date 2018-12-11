@@ -68,7 +68,7 @@ class JollySparkSubmitHook(BaseHook):
                  num_executors=None,
                  java_class=None,
                  driver_memory=None,
-                 run_as_user=None,
+                 run_user=None,
                  verbose=False):
         self._conf = conf
         self._conn_id = conn_id
@@ -79,7 +79,7 @@ class JollySparkSubmitHook(BaseHook):
         self._executor_memory = executor_memory
         self._java_class = java_class
         self._driver_memory = driver_memory
-        self._run_as_user = run_as_user
+        self._run_user = run_user
         self._keytab = keytab
         self._principal = principal
         self._name = name
@@ -123,7 +123,7 @@ class JollySparkSubmitHook(BaseHook):
     def get_conn(self):
         pass
 
-    def _build_command(self, application):
+    def _build_command(self, application, params_list):
         """
         Construct the spark-submit command to execute.
         :param application: command to append to the spark-submit command
@@ -135,25 +135,29 @@ class JollySparkSubmitHook(BaseHook):
 
         # The url ot the spark master
         connection_cmd += ["--master", self._master]
-        # if self._run_as_user:
-        #     connection_cmd = ['sudo', '-E', '-H', '-u', self._run_as_user] + connection_cmd
+        if self._run_user:
+            connection_cmd = ['sudo', '-E', '-H', '-u', self._run_user] + connection_cmd
         if self._conf:
             for key in self._conf:
                 connection_cmd += ["--conf", "{}={}".format(key, str(self._conf[key]))]
+        if self._deploy_mode:
+            connection_cmd += ["--deploy-mode", self._deploy_mode]
+        if self._queue:
+            connection_cmd += ["--queue", self._queue]
         if self._driver_memory:
             connection_cmd += ["--driver-memory", self._driver_memory]
+        if self._executor_memory:
+            connection_cmd += ["--executor-memory", self._executor_memory]
+        if self._num_executors:
+            connection_cmd += ["--num-executors", str(self._num_executors)]
         if self._files:
             connection_cmd += ["--files", self._files]
         if self._py_files:
             connection_cmd += ["--py-files", self._py_files]
         if self._jars:
             connection_cmd += ["--jars", self._jars]
-        if self._num_executors:
-            connection_cmd += ["--num-executors", str(self._num_executors)]
         if self._executor_cores:
             connection_cmd += ["--executor-cores", str(self._executor_cores)]
-        if self._executor_memory:
-            connection_cmd += ["--executor-memory", self._executor_memory]
         if self._keytab:
             connection_cmd += ["--keytab", self._keytab]
         if self._principal:
@@ -164,19 +168,19 @@ class JollySparkSubmitHook(BaseHook):
             connection_cmd += ["--class", self._java_class]
         if self._verbose:
             connection_cmd += ["--verbose"]
-        if self._queue:
-            connection_cmd += ["--queue", self._queue]
-        if self._deploy_mode:
-            connection_cmd += ["--deploy-mode", self._deploy_mode]
-
         # The actual script to execute
         connection_cmd += [application]
+        if params_list:
+            if isinstance(params_list,basestring):
+                connection_cmd += [params_list]
+            else:
+                connection_cmd += list(params_list)
 
         logging.debug("Spark-Submit cmd: {}".format(connection_cmd))
 
         return connection_cmd
 
-    def submit(self, application="", **kwargs):
+    def submit(self, application="",params_list=None,  **kwargs):
         """
         Remote Popen to execute the spark-submit job
 
@@ -184,24 +188,26 @@ class JollySparkSubmitHook(BaseHook):
         :type application: str
         :param kwargs: extra arguments to Popen (see subprocess.Popen)
         """
-        spark_submit_cmd = self._build_command(application)
-        self._sp = subprocess.Popen(spark_submit_cmd,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
-                                    **kwargs)
+        spark_submit_cmd = self._build_command(application, params_list)
+        print(spark_submit_cmd)
+        logging.info('execute: {}'.format(' '.join(spark_submit_cmd)))
 
-        # Using two iterators here to support 'real-time' logging
-        sources = [self._sp.stdout, self._sp.stderr]
+        self._submit_sp = subprocess.Popen(spark_submit_cmd,
+                                           stdout=subprocess.PIPE,
+                                           stderr=subprocess.STDOUT,
+                                           bufsize=-1,
+                                           universal_newlines=True,
+                                           **kwargs)
 
-        for source in sources:
-            self._process_log(iter(source.readline, b''))
+        self._process_log(iter(self._submit_sp.stdout.readline, ''))
+        returncode = self._submit_sp.wait()
 
-        output, stderr = self._sp.communicate()
-
-        if self._sp.returncode:
+        # Check spark-submit return code. In Kubernetes mode, also check the value
+        # of exit code in the log, as it may differ.
+        if returncode :
             raise AirflowException(
-                "Cannot execute: {}. Error code is: {}. Output: {}, Stderr: {}".format(
-                    spark_submit_cmd, self._sp.returncode, output, stderr
+                "Cannot execute: {}. Error code is: {}.".format(
+                    spark_submit_cmd, returncode
                 )
             )
 

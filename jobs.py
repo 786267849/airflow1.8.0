@@ -2061,7 +2061,7 @@ class LocalTaskJob(BaseJob):
 
     def _execute(self):
         self.task_runner = get_task_runner(self)
-
+        print('aaaaaaaaaaaaaaaaaaaaaaaaaa',os.environ.get('AIRFLOW_HOME'))
         def signal_handler(signum, frame):
             '''Setting kill signal handler'''
             logging.error("Killing subprocess")
