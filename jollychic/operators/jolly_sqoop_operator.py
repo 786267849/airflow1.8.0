@@ -181,7 +181,8 @@ class JollySqoopOperator(JollyBaseOperator):
             hcatalog_database=self.hcatalog_database,
             hcatalog_table=self.hcatalog_table,
             properties=self.properties,
-            tinyIntlisBit=self.tinyIntlisBit
+            tinyIntlisBit=self.tinyIntlisBit,
+            run_user = self.run_user
         )
 
         if self.cmd_type == 'export':

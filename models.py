@@ -1433,9 +1433,9 @@ class TaskInstance(Base):
             if task.retries and self.try_number % (task.retries + 1) != 0:
                 self.state = State.UP_FOR_RETRY
                 logging.info('Marking task as UP_FOR_RETRY')
-                if task.email_on_retry and task.email:
+                if isinstance(task, BaseOperator) and task.email_on_retry and task.email:
                     self.email_alert(error, is_retry=True)
-                if task.alert_on_retry:
+                if isinstance(task, JollyBaseOperator) and task.alert_on_retry:
                     alerts = []
                     if task.email:
                         alerts.append((Email(), task.email))
@@ -1450,9 +1450,9 @@ class TaskInstance(Base):
                     logging.info('All retries failed; marking task as FAILED')
                 else:
                     logging.info('Marking task as FAILED.')
-                if task.email_on_failure and task.email:
+                if isinstance(task, BaseOperator) and task.email_on_failure and task.email:
                     self.email_alert(error, is_retry=False)
-                if task.alert_on_failure:
+                if isinstance(task, JollyBaseOperator) and task.alert_on_failure:
                     alerts = []
                     if task.email:
                         alerts.append((Email(), task.email))

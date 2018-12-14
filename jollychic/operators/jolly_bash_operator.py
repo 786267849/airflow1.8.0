@@ -68,6 +68,8 @@ class JollyBashOperator(JollyBaseOperator):
         which will be cleaned afterwards
         """
         bash_command = self.bash_command
+        if self.run_user:
+            bash_command = 'sudo -E -H -u {0} {1}'.format(self.run_user, self.bash_command)
         logging.info("tmp dir root location: \n" + gettempdir())
         with TemporaryDirectory(prefix='airflowtmp') as tmp_dir:
             with NamedTemporaryFile(dir=tmp_dir, prefix=self.task_id) as f:

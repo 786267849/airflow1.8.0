@@ -90,7 +90,8 @@ class JollySparkSqlOperator(JollyBaseOperator):
                                   name=self._name,
                                   num_executors=self._num_executors,
                                   master=self._master,
-                                  yarn_queue=self._yarn_queue
+                                  yarn_queue=self._yarn_queue,
+                                  run_user=self.run_user
                                   )
         self._hook.run_query()
 

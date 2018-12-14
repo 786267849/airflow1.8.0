@@ -6,7 +6,7 @@ from airflow.models import TaskInstance
 import logging
 from airflow import settings
 from airflow.exceptions import AirflowException
-
+from datetime import timedelta
 
 
 
@@ -61,12 +61,17 @@ class JollySensor(JollyBaseOperator):
 
     def poke(self, context):
         if self.execution_delta:
-            dttm = context['execution_date'] - self.execution_delta
-        elif self.execution_date_fn:
-            dttm = self.execution_date_fn(context['execution_date'])
-        else:
-            dttm = context['execution_date']
-
+            # 判断execution时间差值是否小于一天，若小于则按照具体时间差查询依赖的task执行后的状态
+            if self.execution_delta < timedelta(days=1):
+                dttm = context['execution_date'] - self.execution_delta
+            else:#若大于一天则认为所依赖task运行间隔以天为单位，查询在设置一整天内task的执行状态
+                dttm = (context['execution_date'] - self.execution_delta).date()
+        # elif self.execution_date_fn:
+        #     dttm = self.execution_date_fn(context['execution_date'])
+        else:#若没有设置dexcution_delta,则默认验证本task_execution_date一天内所依赖的task的执行状态
+            dttm = context['execution_date'].date()
+        print(self.execution_delta)
+        print('xxxxxxxxxxxx dttm:',dttm)
         logging.info(
             'Poking for '
             '{self.external_dag_id}.'
@@ -79,13 +84,21 @@ class JollySensor(JollyBaseOperator):
             self.external_task_id = (self.external_task_id,)
         else:
             self.external_task_id = tuple(self.external_task_id)
-
-        count = session.query(TI).filter(
-            TI.dag_id == self.external_dag_id,
-            TI.task_id.in_(self.external_task_id),
-            TI.state.in_(self.allowed_states),
-            TI.execution_date == dttm,
-        ).count()
+        #以具体时间查询,求count
+        if self.execution_delta and self.execution_delta < timedelta(days=1):
+            count = session.query(TI).filter(
+                TI.dag_id == self.external_dag_id,
+                TI.task_id.in_(self.external_task_id),
+                TI.state.in_(self.allowed_states),
+                TI.execution_date == dttm,
+            ).count()
+        else:#以一天范围查找，求count
+            count = session.query(TI).filter(
+                TI.dag_id == self.external_dag_id,
+                TI.task_id.in_(self.external_task_id),
+                TI.state.in_(self.allowed_states),
+                TI.execution_date.between(dttm,dttm+timedelta(days=1)),
+            ).count()
         session.commit()
         session.close()
         return True if count == len(self.external_task_id) else False

@@ -60,7 +60,8 @@ class JollySparkSqlHook(BaseHook):
                  name='default-name',
                  num_executors=None,
                  verbose=True,
-                 yarn_queue='default'
+                 yarn_queue='default',
+                 run_user=None
                  ):
         self._sql = sql
         self._conf = conf
@@ -75,6 +76,7 @@ class JollySparkSqlHook(BaseHook):
         self._verbose = verbose
         self._yarn_queue = yarn_queue
         self._sp = None
+        self.run_user = run_user
 
     def get_conn(self):
         pass
@@ -88,6 +90,8 @@ class JollySparkSqlHook(BaseHook):
         :return: full command to be executed
         """
         connection_cmd = ["spark-sql"]
+        if self.run_user:
+            connection_cmd = ['sudo', '-E', '-H', '-u', self.run_user] + connection_cmd
         if self._conf:
             for conf_el in self._conf.split(","):
                 connection_cmd += ["--conf", conf_el]
@@ -129,6 +133,7 @@ class JollySparkSqlHook(BaseHook):
         :param kwargs: extra arguments to Popen (see subprocess.Popen)
         """
         spark_sql_cmd = self._prepare_command(cmd)
+        logging.info('Running command: {}'.format(" ".join(spark_sql_cmd)))
         self._sp = subprocess.Popen(spark_sql_cmd,
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT,

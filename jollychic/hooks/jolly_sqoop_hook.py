@@ -53,7 +53,7 @@ class JollySqoopHook(BaseHook):
 
     def __init__(self, conn_id='sqoop_default', verbose=False,
                  num_mappers=None, hcatalog_database=None,
-                 hcatalog_table=None, properties=None, tinyIntlisBit=False):
+                 hcatalog_table=None, properties=None, tinyIntlisBit=False, run_user=None):
         # No mutable types in the default parameters
         self.conn = self.get_connection(conn_id)
         connection_parameters = self.conn.extra_dejson
@@ -69,6 +69,7 @@ class JollySqoopHook(BaseHook):
         self.num_mappers = num_mappers
         self.properties = properties or {}
         self.tinyInt1isBit = tinyIntlisBit
+        self.run_user = run_user
         logging.info(
             "Using connection to: {}:{}/{}".format(
                 self.conn.host, self.conn.port, self.conn.schema
@@ -116,7 +117,8 @@ class JollySqoopHook(BaseHook):
     def _prepare_command(self, export=False):
         sqoop_cmd_type = "export" if export else "import"
         connection_cmd = ["sqoop", sqoop_cmd_type]
-
+        if self.run_user:
+            connection_cmd = ['sudo', '-E', '-H', '-u', self.run_user] + connection_cmd
         for key, value in self.properties.items():
             connection_cmd += ["-D", "{}={}".format(key, value)]
 
