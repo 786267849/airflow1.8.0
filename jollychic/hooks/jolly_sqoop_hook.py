@@ -114,9 +114,12 @@ class JollySqoopHook(BaseHook):
         if self.sp.returncode:
             raise AirflowException("Sqoop command failed: {}".format(masked_cmd))
 
-    def _prepare_command(self, export=False):
+    def _prepare_command(self, export=False,job_id=None):
         sqoop_cmd_type = "export" if export else "import"
-        connection_cmd = ["sqoop", sqoop_cmd_type]
+        if job_id:
+            connection_cmd = ["sqoop", "job", "--create", job_id, "--", sqoop_cmd_type ]
+        else:
+            connection_cmd = ["sqoop", sqoop_cmd_type]
         if self.run_user:
             connection_cmd = ['sudo', '-E', '-H', '-u', self.run_user] + connection_cmd
         for key, value in self.properties.items():
@@ -134,10 +137,10 @@ class JollySqoopHook(BaseHook):
             connection_cmd += ["-archives", self.archives]
         if self.conn.login:
             connection_cmd += ["--username", self.conn.login]
-        if self.conn.password:
-            connection_cmd += ["--password", self.conn.password]
         if self.password_file:
             connection_cmd += ["--password-file", self.password_file]
+        if self.conn.password and not self.password_file:
+            connection_cmd += ["--password", self.conn.password]
         if self.verbose:
             connection_cmd += ["--verbose"]
         if self.num_mappers:
@@ -170,25 +173,10 @@ class JollySqoopHook(BaseHook):
             raise AirflowException("Argument file_type should be 'avro', "
                                    "'sequence', 'parquet' or 'text'.")
 
-    def _import_cmd(self,hive_database, hive_overwrite,
-                    drop_import_delims, hive_table, delete_target_dir,
-                    target_dir, append, file_type, split_by, direct,
+    def _import_cmd(self,target_dir, append, file_type, split_by, direct,
                     driver, extra_import_options):
 
         cmd = self._prepare_command(export=False)
-
-        if hive_table:
-            cmd += ["--hive-import","--hive-database", hive_database, "--hive-table", hive_table]
-
-        if hive_overwrite:
-            cmd += ["--hive-overwrite"]
-
-        if drop_import_delims:
-            cmd += ["--hive-drop-import-delims"]
-
-        if delete_target_dir:
-            cmd += ["--delete-target-dir"]
-
         if target_dir:
             cmd += ["--target-dir", target_dir]
 
@@ -218,8 +206,10 @@ class JollySqoopHook(BaseHook):
     def import_table(self, table, target_dir=None, append=False, file_type="text",
                      columns=None, split_by=None, where=None, direct=False,
                      driver=None, extra_import_options=None,
-                     hive_import=False, hive_database='default', hive_overwrite=True,
-                    drop_import_delims=True, hive_table=None, delete_target_dir=True):
+                     hive_database='default', hive_overwrite=True,
+                     drop_import_delims=True, hive_table=None, delete_target_dir=False,
+                     incremental=None, check_cloumn=None, last_value=None,
+                     ):
         """
         Imports table from remote location to target dir. Arguments are
         copies of direct sqoop command line arguments
@@ -238,12 +228,33 @@ class JollySqoopHook(BaseHook):
             Don't include prefix of -- for sqoop options.
         """
 
-        cmd = self._import_cmd(hive_database, hive_overwrite,
-                    drop_import_delims, hive_table, delete_target_dir,
-                    target_dir, append, file_type, split_by, direct,
+        cmd = self._import_cmd(target_dir, append, file_type, split_by, direct,
                     driver, extra_import_options)
-
         cmd += ["--table", table]
+
+        if hive_table:
+            cmd += ["--hive-import","--hive-database", hive_database, "--hive-table", hive_table]
+
+            if hive_overwrite:
+                cmd += ["--hive-overwrite"]
+
+        if drop_import_delims:
+            cmd += ["--hive-drop-import-delims"]
+
+        if delete_target_dir and incremental:
+            raise AirflowException("--incremental and --delete-target-dir can not be used together")
+
+        if delete_target_dir:
+            cmd += ["--delete-target-dir"]
+
+        if incremental:
+            cmd +=["--incremental", incremental]
+
+        if check_cloumn:
+            cmd += ["--check-column", check_cloumn]
+
+        if last_value:
+            cmd += ["--last-value", last_value]
 
         if columns:
             cmd += ["--columns", columns]
@@ -371,3 +382,84 @@ class JollySqoopHook(BaseHook):
                                relaxed_isolation, extra_export_options)
 
         self.Popen(cmd)
+
+
+
+    def create_job(self, job_id, target_dir,file_type, split_by,driver, extra_import_options,
+                   table, hive_table,hive_database,drop_import_delims,delete_target_dir, incremental, check_cloumn,
+                   last_value, merge_key, columns, where):
+        cmd = self._prepare_command(job_id=job_id)
+        if target_dir:
+            cmd += ["--target-dir", target_dir]
+
+        cmd += self._get_export_format_argument(file_type)
+
+        if split_by:
+            cmd += ["--split-by", split_by]
+
+
+        if driver:
+            cmd += ["--driver", driver]
+
+        if extra_import_options:
+            for key, value in extra_import_options.items():
+                cmd += ['--{}'.format(key)]
+                if value:
+                    cmd += [value]
+
+        cmd += ["--table", table]
+
+        if hive_table:
+            cmd += ["--hive-import", "--hive-database", hive_database, "--hive-table", hive_table]
+
+        if drop_import_delims:
+            cmd += ["--hive-drop-import-delims"]
+
+        if delete_target_dir and incremental:
+            raise AirflowException("--incremental and --delete-target-dir can not be used together")
+
+        if delete_target_dir:
+            cmd += ["--delete-target-dir"]
+
+        if incremental:
+            cmd += ["--incremental", incremental]
+
+        if check_cloumn:
+            cmd += ["--check-column", check_cloumn]
+
+        if last_value:
+            cmd += ["--last-value", last_value]
+
+        if merge_key:
+            cmd +=["--merge-key", merge_key]
+
+        if columns:
+            cmd += ["--columns", columns]
+
+        if where:
+            cmd += ["--where", where]
+
+        self.Popen(cmd)
+
+
+
+    def job(self, job_id, target_dir=None,file_type='text', split_by=None,driver=None, extra_import_options=None,
+           table=None, hive_table=None,hive_database='default',drop_import_delims=True,delete_target_dir=False,
+            incremental=None, check_cloumn=None, last_value=None, merge_key=None, columns=None, where=None):
+
+        cmd = "sqoop job -show {}".format(job_id)
+        p = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            shell = True)
+        p.wait()
+        if p.returncode:
+            self.create_job(job_id,target_dir,file_type, split_by,driver, extra_import_options,
+                   table, hive_table,hive_database,drop_import_delims,delete_target_dir, incremental, check_cloumn,
+                   last_value, merge_key, columns, where)
+
+        exec_cmd = ["sqoop", "job", "--exec", job_id]
+        self.Popen(exec_cmd)
+
+

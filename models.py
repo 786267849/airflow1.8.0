@@ -79,6 +79,7 @@ from airflow.utils.operator_resources import Resources
 from airflow.utils.state import State
 from airflow.utils.timeout import timeout
 from airflow.utils.trigger_rule import TriggerRule
+from requests.adapters import HTTPAdapter
 
 Base = declarative_base()
 ID_LEN = 250
@@ -3003,20 +3004,28 @@ class JollyBaseOperator(object):
                 else:
                     partitionValue = execution_date.strftime('%Y%m%d')
                 url = configuration.get('holmes', 'url')
-                data = {
-                    "partitionValue": partitionValue,
-                    "ruleName": self._post_rule
-                }
+                if isinstance(self._post_rule,basestring):
+                    post_rules = [self._post_rule]
+                else:
+                    post_rules = self._post_rule
                 headers = {
                     'Content-Type': 'application/json;charset=UTF-8'
                 }
-                resp = requests.post(url, data=json.dumps(data), headers=headers, timeout=(10, 600))
-                result = json.loads(resp.text)
-                if not result["success"] or result["alarms"][0]["alarm"]:
-                    raise NameError
-                logging.info("{0}\tdata verification success".format(partitionValue))
+                req = requests.session()
+                req.mount('http://', HTTPAdapter(max_retries=5))
+                for post_rule in post_rules:
+                    data = {
+                        "partitionValue": partitionValue,
+                        "ruleName": post_rule
+                    }
+                    resp = req.post(url, data=json.dumps(data), headers=headers, timeout=(10, 600))
+                    result = json.loads(resp.text)
+                    if not result["success"] or result["alarms"][0]["alarm"]:
+                        logging.error("{0}\truleName:{1} data verification failed".format(partitionValue, post_rule))
+                        raise NameError
+                    logging.info("{0}\truleName:{1} data verification success".format(partitionValue,post_rule))
             except Exception as e:
-                logging.error("data verification failed \n" + str(e))
+                logging.error("data verification failed \n"+ str(e))
                 raise
 
     def on_kill(self):

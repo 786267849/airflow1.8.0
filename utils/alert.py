@@ -172,7 +172,7 @@ class Weixin():
 class Phone():
     def send(self, to_phones, title, body):
         data = {
-            "app": "9b6b0150-f7ab-cf14-dcbe-c87e68cec16c",
+            "app": "9079dd5c-e781-25ee-caed-4c9e18b64b6f",
             "eventType": "trigger",
             "alarmName": title,
             "alarmContent": body

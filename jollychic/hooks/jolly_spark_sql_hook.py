@@ -61,7 +61,8 @@ class JollySparkSqlHook(BaseHook):
                  num_executors=None,
                  verbose=True,
                  yarn_queue='default',
-                 run_user=None
+                 run_user=None,
+                 params = {}
                  ):
         self._sql = sql
         self._conf = conf
@@ -77,6 +78,7 @@ class JollySparkSqlHook(BaseHook):
         self._yarn_queue = yarn_queue
         self._sp = None
         self.run_user = run_user
+        self.params = params
 
     def get_conn(self):
         pass
@@ -108,6 +110,9 @@ class JollySparkSqlHook(BaseHook):
         if self._sql:
             sql = self._sql.strip()
             if sql.endswith('.sql') or sql.endswith(".hql"):
+                if self.params:
+                    for key,value in self.params.items():
+                        connection_cmd +=["-hiveconf","{}={}".format(key,value)]
                 connection_cmd += ["-f", sql]
             else:
                 connection_cmd += ["-e", sql]

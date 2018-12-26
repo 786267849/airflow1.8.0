@@ -75,13 +75,17 @@ class JollySqoopOperator(JollyBaseOperator):
                  extra_export_options=None,
 
 
-                 hive_import=False,
                  hive_database = 'default',
                  hive_overwrite = True,
                  drop_import_delims = True,
                  hive_table = None,
-                 delete_target_dir = True,
+                 delete_target_dir = False,
                  tinyIntlisBit = False,
+                 incremental = None,    #自增方式 append/lastmodified
+                 check_column = None,   #导入时要检查的列（该列不能是CHAR/NCHAR/VARCHAR/VARNCHAR/LONGVARCHAR/LONGNVARCHAR类型）
+                 last_value = None,       #指定先前导入中的检查列的最大值
+                 merge_key = None,      #合并依据列（一般为主键，只有自增方式为lastmodified时用，即支持数据更新）
+                 job_id = None,         #要创建或则执行的job_id
                  *args,
                  **kwargs):
         """
@@ -163,13 +167,18 @@ class JollySqoopOperator(JollyBaseOperator):
         self.extra_export_options = extra_export_options or {}
 
 
-        self.hive_import = hive_import
         self.hive_database = hive_database
         self.hive_overwrite = hive_overwrite
         self.drop_import_delims = drop_import_delims
         self.hive_table = hive_table
         self.delete_target_dir = delete_target_dir
         self.tinyIntlisBit = tinyIntlisBit
+        self.incremental = incremental
+        self.check_column = check_column
+        self.last_value = last_value
+        self.merge_key = merge_key
+        self.job_id = job_id
+
     def execute(self, context):
         """
         Execute sqoop job
@@ -201,7 +210,7 @@ class JollySqoopOperator(JollyBaseOperator):
                 batch=self.batch,
                 relaxed_isolation=self.relaxed_isolation,
                 extra_export_options=self.extra_export_options)
-        elif self.cmd_type == 'import':
+        elif self.cmd_type == 'import' and not self.job_id :
             # add create hcatalog table to extra import options if option passed
             # if new params are added to constructor can pass them in here
             # so don't modify sqoop_hook for each param
@@ -228,12 +237,14 @@ class JollySqoopOperator(JollyBaseOperator):
 
 
 
-                    hive_import=self.hive_import,
                     hive_database = self.hive_database,
                     hive_overwrite = self.hive_overwrite,
                     drop_import_delims = self.drop_import_delims,
                     hive_table = self.hive_table,
-                    delete_target_dir = self.delete_target_dir
+                    delete_target_dir = self.delete_target_dir,
+                    incremental = self.incremental,
+                    check_cloumn = self.check_column,
+                    last_value = self.last_value,
 
                 )
             elif self.query:
@@ -250,6 +261,27 @@ class JollySqoopOperator(JollyBaseOperator):
                 raise AirflowException(
                     "Provide query or table parameter to import using Sqoop"
                 )
+
+        elif self.cmd_type == 'import' and self.job_id :
+            self.hook.job(
+                job_id=self.job_id,
+                target_dir=self.target_dir,
+                file_type=self.file_type,
+                split_by=self.split_by,
+                driver=self.driver,
+                extra_import_options=self.extra_import_options,
+                table=self.table,
+                hive_table=self.hive_table,
+                hive_database=self.hive_database,
+                drop_import_delims=self.drop_import_delims,
+                delete_target_dir=self.delete_target_dir,
+                incremental=self.incremental,
+                check_cloumn=self.check_column,
+                last_value=self.last_value,
+                merge_key=self.merge_key,
+                columns=self.columns,
+                where=self.where)
+
         else:
             raise AirflowException("cmd_type should be 'import' or 'export'")
 

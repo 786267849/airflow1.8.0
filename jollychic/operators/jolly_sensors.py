@@ -70,8 +70,6 @@ class JollySensor(JollyBaseOperator):
         #     dttm = self.execution_date_fn(context['execution_date'])
         else:#若没有设置dexcution_delta,则默认验证本task_execution_date一天内所依赖的task的执行状态
             dttm = context['execution_date'].date()
-        print(self.execution_delta)
-        print('xxxxxxxxxxxx dttm:',dttm)
         logging.info(
             'Poking for '
             '{self.external_dag_id}.'
@@ -98,7 +96,7 @@ class JollySensor(JollyBaseOperator):
                 TI.task_id.in_(self.external_task_id),
                 TI.state.in_(self.allowed_states),
                 TI.execution_date.between(dttm,dttm+timedelta(days=1)),
-            ).count()
+            ).group_by(TI.task_id).count()
         session.commit()
         session.close()
         return True if count == len(self.external_task_id) else False
